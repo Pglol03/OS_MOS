@@ -6,8 +6,8 @@ using namespace std;
 class OS{
     private:
         char M[100][4];     //Physical Memory
-        char IR[4];         //Instruction Register (4 bytes)
-        char R[4];          //General Purpose Register (4 bytes)
+        char IR[4] ;         //Instruction Register (4 bytes)
+        char R[4] ;          //General Purpose Register (4 bytes)
         int IC;             //Instruction Counter Register (2 bytes)
         int SI;             //Interrupt
         bool C;             //Toggle (1 byte)
@@ -39,9 +39,10 @@ void OS::init()
         
     }    
      
-   
-    IR[0] = {' '};
-    R[0] = {' '};
+    memset(&IR[0], 0, sizeof(IR));
+    memset(&R[0], 0, sizeof(R));
+    // IR[0] = {' '};
+    // R[0] = {' '};
     C = false;
 
 }
