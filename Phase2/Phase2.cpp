@@ -53,7 +53,8 @@ void allocate()
         cout<<"cnt2  "<<level<<endl;
         }
         flag[pos/10]=1;
-        itoa(pos,str,10);
+        //itoa(pos,str,10);
+        sprintf(str, "%d", pos);
         if(pos/100==0)
         {
             M[PTR+kio][2]='0';
@@ -121,7 +122,8 @@ void AddMap()
         //cout<<"cnt2  "<<level<<endl;
         }
         flag[pos/10]=1;
-        itoa(pos,str,10);
+        // itoa(pos,str,10);
+        sprintf(str, "%d", pos);
         if(pos/100==0)
         {
             M[RA][2]='0';
@@ -160,7 +162,7 @@ void read()
     {
         for(j=0;j<4 && k<=line.size();j++)
         {
-            cout<<"\Count  :";
+            cout<<"\n Count  :";
             cout<<no+i<<endl<<j<<"\n";
             M[no+i][j] = line[k];
             k++;
@@ -480,7 +482,7 @@ void load()
 
 int main()
 {
-    fin.open("input.txt");
+    fin.open("input_phase2.txt");
     fout.open("output.txt");
     load();
      fin.close();
@@ -488,16 +490,3 @@ int main()
     return 0;
 }
 
-
-
-$AMJ000100060001
-GD10PD10H
-$DTA
-HELLO WORLD!
-$END0002
-
-
-**** Operand error : ****
-**** Program terminated abnormally. ****
-SI = 0  TI =0  PI=2
-TTC = 0  LLC=0
