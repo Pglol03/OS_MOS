@@ -1,492 +1,398 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<iostream>
-#include<fstream>
-#include<string.h>
-
+#include <bits/stdc++.h>
 using namespace std;
-int IC,PTR,VA,RA,kio=-1,flag[30],PI,TI,SI,TTC=0,LLC=0;
-char M[300][4],IR[4],R[4],C;
-char page[10][4];
-fstream fin,fout;
-char temp[100];
-string line;
+
+struct PCB{
+    int job_id; 
+    int TTL;  //total time limit
+    int TLL;  //total line limit
+    int TTC;  //total time counter
+    int TLC;  //total line counter
+};
+
+struct PCB P;
+
+int ptr;  //page table register
+int visited[30]; //pages
+char M[300][4];  //main memeory
+char IR[4];  
+char R[4];
+int IC;
+bool C;
+int SI;
+int VA;  //virtual address
+int RA;  //real address
+int PI;  //program interrupt
+int TI;  //time interrupt
+int EM;  //error message
+
+fstream inFile;
+fstream outFile;
+
+unordered_map<int, string> errors = {{0, "No Error"},
+        {1, "Out of Data"}, 
+        {2, "Line Limit Exceeded"},
+        {3, "Time Limit Exceeded"},
+        {4, "Operation Code Error"},
+        {5, "Operand Error"}, 
+        {6, "Invalid Page Fault"}};
+
+void init();
+void LOAD();
+void EXECUTE();
 void MOS();
+int ALLOCATE();
+int ADDRESSMAP(int);
+int TERMINATE(int);
 
-struct PCB
-{
-    char job[4],TTL[4],TLL[4];
-}pcb;
+void init(){
+    for (int i = 0; i < 300; i++){
+        for (int j = 0; j < 4; j++){
+            M[i][j] = ' ';
+        }
+    }
+    for (int i = 0; i < 30; i++){
+        visited[i] = 0;
+    }
 
-int ttl,tll;
-
-
-void endprogram()
-{
-    fout<<"\nSI = "<<SI<<"  TI ="<<TI<<"  PI="<<PI<<endl;
-        fout<<"TTC = "<<TTC<<"  LLC="<<LLC<<endl;
-            cout<<"\nSI = "<<SI<<"  TI ="<<TI<<"  PI="<<PI<<endl;
-        cout<<"TTC = "<<TTC<<"  LLC="<<LLC<<endl;
-    exit(1);
+    IR[4] = {'-'};
+    R[4] = {'-'};
+    IC = 0;
+    C = false;
+    ptr = 0;
+    VA = 0;
+    PI = 0;
+    TI = 0;
+    EM = 0;
 }
 
-void allocate()
-{
+int ALLOCATE(){
+    return (rand() % 30);
+}
 
-    int pos,i,j,k=0,check=0,len;
-    char str[2];
-    int level=0;
+int ADDRESSMAP(int va){
+    int pte = ptr * 10 + va / 10;
+    cout<<"PTE: "<<pte<<endl;
+    string temp = "";
+    if (M[pte][0] == '*'){
+        cout << "Page Fault" << endl;
+        return -1;
+    }else{
+        for (int i = 0; i < 4; i++){
+            if (M[pte][i] != ' '){
+                temp += M[pte][i];
+            }
+        }
+        return ((stoi(temp) * 10) + (va % 10));
+    }
+}
 
-    while(check!=1)
-    {
-        cout<<"TEMP  "<<kio<<endl;
-        kio++;
+int TERMINATE(int Code){
+    cout<<"\n"<<errors[Code]<<endl;
+    outFile<<"\nProgram Terminated abnormally"<<"\t\t";
+    outFile<<errors[Code]<<endl;
+}
 
-        cout<<"Cnt1  "<<level<<endl;
-        pos=(rand()%29)*10;
-        cout<<"Pos1   "<<pos<<endl;
-        while(flag[pos/10] != 0 )
-        {
-        cout<<"In while pos"<<endl;
-        pos=(rand()%29)*10;
-        cout<<"Pos2  "<<pos<<endl;
-        cout<<"cnt2  "<<level<<endl;
+void MOS(){
+    if (SI == 1){
+        string line;
+        getline(inFile, line);
+
+        if (line[0] == '$' && line[1] == 'E' && line[2] == 'N' && line[3] == 'D'){
+            EM = 1;
+            TERMINATE(1);
+            return;
         }
-        flag[pos/10]=1;
-        //itoa(pos,str,10);
-        sprintf(str, "%d", pos);
-        if(pos/100==0)
-        {
-            M[PTR+kio][2]='0';
-             M[PTR+kio][3]=str[0];
+
+        int frame = ALLOCATE();
+        cout<<"frame = "<<frame<<endl;
+        while (visited[frame] != 0){
+            frame = ALLOCATE();
         }
-        else{
-                M[PTR+kio][2]=str[0];
-        M[PTR+kio][3]=str[1];
-        cout<<"Cnt3  "<<level<<endl;
+
+        visited[frame] = 1;
+
+        int i = ptr;
+        i = i * 10;
+        cout << "\n\nPTR = " << ptr << endl;
+        while (M[i][0] != '*'){
+            i++;
         }
-        getline(fin,line);
-        cout<<line<<"Line2"<<endl;
-        level++;
-        k=0;
-        for(i=0;i<line.size()/4;i++)
-        {
-            for(j=0;j<4;j++)
-            {
-                M[pos+i][j]=line[k];
-                k++;
-                if(line[k]=='H')
-                {
-                    check=1;
-                    M[pos+(i+1)][0]='H';
-                    M[pos+(i+1)][1]='0';
-                    M[pos+(i+1)][2]='0';
-                    M[pos+(i+1)][3]='0';
+
+        int temp = frame / 10;
+
+        M[i][0] = ' ';
+        M[i][1] = ' ';
+        M[i][2] = temp + 48;
+        M[i][3] = frame % 10 + 48;
+
+        int l = 0;
+        frame = frame * 10;
+        for (int i = 0; i < line.length() && line.length() < 40; i++){
+            M[frame][l++] = line[i];
+            if (l == 4){
+                l = 0;
+                frame += 1;
+            }
+        }
+    }else if (SI == 2){
+        P.TLC += 1;
+        if (P.TLC > P.TLL){
+            EM = 2;
+            TERMINATE(2);
+            return;
+        }
+
+        int add = IR[2] - 48;
+        add = (add * 10);
+
+        int ra = ADDRESSMAP(add);
+
+        if (ra != -1){
+            string out;
+
+            for (int i = 0; i < 10; i++){
+                for (int j = 0; j < 4; j++){
+                    out += M[ra][j];
+                }
+                ra += 1;
+            }
+            outFile << out << "\n";
+        }else{
+            EM = 6;
+            TERMINATE(6);
+            PI = 3;
+        }
+    }else if (SI == 3){
+        outFile<<"\nProgram Terminated Successfully"<<"\n";
+        outFile<< "JOBID: "<<P.job_id<<"\tIC: "<<IC<<"\tToggle : "<<C<<"\tTLC: "<<P.TLC<<"\tTTC: "<<P.TTC<<"\tTTL: "<<P.TTL<<"\tTLL: " <<P.TLL<<"\tIR: ";
+
+        for (int i = 0; i < 4; i++){
+            outFile << IR[i];
+        }
+        outFile<<"\n\n";
+    }
+}
+
+void EXECUTE(){
+    while(1){
+        if (PI != 0 || TI != 0 || EM != 0){
+            outFile<< "JOBID: "<<P.job_id<<"\tIC: "<<IC<<"\tToggle : "<<C<<"\tTLC: "<<P.TLC<<"\tTTC: "<<P.TTC<<"\tTTL: "<<P.TTL<<"\tTLL: " <<P.TLL<<"\tIR: ";
+            for (int i = 0; i < 4; i++){
+                outFile << IR[i];
+            }
+            outFile<<"\n\n";
+            break;
+        }
+        cout<<"ic="<<IC<<endl;
+        RA = ADDRESSMAP(IC);
+        cout<<"RA "<<RA<<endl;
+
+        if (M[RA][0] != 'H' && (!isdigit(M[RA][2]) || !isdigit(M[RA][3]))){
+            EM = 5;
+            TERMINATE(EM);
+            outFile<< "JOBID: "<<P.job_id<<"\tIC: "<<IC<<"\tToggle : "<<C<<"\tTLC: "<<P.TLC<<"\tTTC: "<<P.TTC<<"\tTTL: "<<P.TTL<<"\tTLL: " <<P.TLL<<"\tIR: ";
+            for (int i = 0; i < 4; i++){
+                outFile << IR[i];
+            }
+            outFile<<"\n\n";
+        }
+        for (int i = 0; i < 4; i++){
+            IR[i] = M[RA][i];
+        }
+        IC++;
+
+        int add = IR[2] - 48;
+        add = (add * 10) + (IR[3] - 48);
+        cout<<"add "<<add<<endl;
+
+        if ((IR[0] == 'G' && IR[1] == 'D') || (IR[0] == 'S' && IR[1] == 'R')){
+            P.TTC += 2;
+        }else{
+            P.TTC += 1;
+        }
+        if (P.TTC > P.TTL){
+            EM = 3;
+            TI = 2;
+            TERMINATE(EM);
+            outFile<< "JOBID: "<<P.job_id<<"\tIC: "<<IC<<"\tToggle : "<<C<<"\tTLC: "<<P.TLC<<"\tTTC: "<<P.TTC<<"\tTTL: "<<P.TTL<<"\tTLL: " <<P.TLL<<"\tIR: ";
+            for (int i = 0; i < 4; i++){
+                outFile << IR[i];
+            }
+            outFile<<"\n\n";
+            break;
+        }
+        if (IR[0] == 'L' && IR[1] == 'R'){
+            int ra = ADDRESSMAP(add);
+            cout<<"ra "<<ra<<endl;
+            if (ra == -1){
+                EM = 6;
+                TERMINATE(6);
+            }else{
+                for (int i = 0; i < 4; i++){
+                    R[i] = M[ra][i];
+                }
+            }
+        }else if (IR[0] == 'S' && IR[1] == 'R'){
+            int ra = ADDRESSMAP(add);
+            if (ra != -1){
+                for (int i = 0; i < 4; i++){
+                    M[ra][i] = R[i];
+                }
+            }else{
+                int frame = ALLOCATE();
+                while (visited[frame] != 0){
+                    frame = ALLOCATE();
                 }
 
-            }
-        }
+                visited[frame] = 1;
 
-    }
-    cout<<endl<<"MEMORY"<<endl;
-    for(i=0;i<300;i++)
-    {cout<<"["<<i<<"] = ";
-        for(j=0;j<4;j++)
-        {
-            cout<<M[i][j];
-
-        }
-        cout<<endl;
-    }
-}
-
-void AddMap()
-{
-    int add,pos;
-    char str[2];
-    RA = PTR+(VA/10);
-
-    if(M[RA][3]== '#')
-    {
-        cout<<"**** Page fault occured ****\n";
-
-
-
-        pos=(rand()%29)*10;
-        cout<<"POS1   "<<pos<<endl;
-        while(flag[pos/10] != 0 )
-        {
-        cout<<"in while pos"<<endl;
-        pos=(rand()%29)*10;
-        cout<<"POS2  "<<pos<<endl;
-        //cout<<"cnt2  "<<level<<endl;
-        }
-        flag[pos/10]=1;
-        // itoa(pos,str,10);
-        sprintf(str, "%d", pos);
-        if(pos/100==0)
-        {
-            M[RA][2]='0';
-            M[RA][3]=str[0];
-        }
-        else
-        {
-            M[RA][2]=str[0];
-            M[RA][3]=str[1];
-            //cout<<"cnt3  "<<level<<endl;
-        }
-
-        PI=3;
-    }
-
-    if( RA > PTR+10 )
-    {
-        //cout<<"OPERAND ERROR";
-
-        PI=2;
-        MOS();
-    }
-
-}
-
-void read()
-{
-    int no,i,j,k,z,x;
-
-    getline(fin,line);
-    cout<<"\nLine  :"<<line;
-    no=((M[RA][2]-48)*10)+(M[RA][3]-48);
-    no=no*10;
-    k=0;
-    for(i=0; k<=line.size()  ;i++)
-    {
-        for(j=0;j<4 && k<=line.size();j++)
-        {
-            cout<<"\n Count  :";
-            cout<<no+i<<endl<<j<<"\n";
-            M[no+i][j] = line[k];
-            k++;
-        }
-    }
-
-    for(i=0;i<300;i++)
-    {
-        cout<<"["<<i<<"] = ";
-        for(j=0;j<4;j++)
-        {
-            cout<<M[i][j];
-
-        }
-        cout<<endl;
-    }
-
-
-
-
-}
-
-void write()
-{
-
-    char buff[40];
-    cout<<"\n In Write : \n";
-    int no=0,i,j,k,z,x;
-    no=((M[RA][2]-48)*10)+(M[RA][3]-48);
-   // cout<<no<<"fgkjfdkjbfd"<<RA<<endl;
-    no=no*10;
-    k=0;
-    while(1)
-    {
-        for(i=0; i<4 ;i++)
-        {
-            if(M[no][i] == '_')
-                break;
-            buff[k] = M[no][i];
-            k++;
-        }
-        if(M[no][i] == '_')
-                break;
-        no++;
-    }
-    buff[k]='\0';
-    cout<<"\n Line is : "<<buff<<endl;
-    fout.write(buff,strlen(buff));
-    cout<<"program terminated normally";
-    fout<<endl<<"-----------------------------------------------------------------------------------"<<endl;
-    fout<<endl<<"program terminated normally"<<endl;
-
-
-
-}
-
-void MOS()
-{
-    if(PI==1)
-    {
-        cout<<"\n**** Opcode Error : ****\n**** Program terminated abnormally. ****\n\n";
-            fout<<"\n**** Opcode error : ****\n**** Program terminated abnormally. ****";
-            endprogram();
-    }
-    else if(PI==2)
-    {
-        cout<<"\n**** Operand Error : ****\n**** Program terminated abnormally. ****\n\n";
-            fout<<"\n**** Operand error : ****\n**** Program terminated abnormally. ****";
-            endprogram();
-    }
-
-
-    if(SI==3)
-        endprogram();
-    else if(SI==1)
-    {
-        if(TI==0)
-            read();
-        else if(TI==2)
-        {
-            cout<<"\n**** Time Limit Exceeded : ****\n**** Program terminated abnormally. sss****";
-            fout<<"\n**** Time Limit Exceeded : ****\n**** Program terminated abnormally. ****";
-            endprogram();
-        }
-       // else if(TI==1)
-    }
-    else if(SI==2)
-    {
-        cout<<"\nIN SI=2";
-        if(TI==0)
-        {
-            cout<<"\nIN TI=0";
-            write();
-        }
-        else if(TI==2)
-        {
-             cout<<"\nIN TI=0";
-            write();
-            cout<<"\n**** Time Limit Exceeded : ****\n**** Program terminated abnormally. ****";
-            fout<<"\n**** Time Limit Exceeded : ****\n**** Program terminated abnormally. ****";
-            endprogram();
-
-
-        }
-        else if(TI==1)
-        {
-            cout<<"\n**** Line Limit Exceeded : ****\n**** Program terminated abnormally. ****";
-            fout<<"\n**** Line Limit Exceeded : ****\n**** Program terminated abnormally. ****";
-            endprogram();
-        }
-    }
-}
-
-
-
-void examine()
-{
-    char ch;
-    ch=IR[0];
-    //TI=0;
-    PI=0;
-
-    switch(ch)
-
-    {
-    case 'G':
-        cout<<"\nSI = "<<SI<<"  TI ="<<TI<<"  PI="<<PI<<endl;
-        cout<<"TTC = "<<TTC<<"  LLC="<<LLC<<endl;
-
-        if(IR[1] !='D')
-        {
-            PI=1;
-            MOS();
-        }
-
-        else
-        {
-            TTC = TTC+2;
-            if(TTC <= ttl)
-            {
-                SI=1;
-                MOS();
-            }
-            else
-            {
-                TI=2;
-                MOS();
-            }
-            //read();
-        }
-        cout<<"\nSI = "<<SI<<"  TI ="<<TI<<"  PI="<<PI<<endl;
-        cout<<"TTC = "<<TTC<<"  LLC="<<LLC<<endl;
-        break;
-
-    case 'P':
-        SI=2;
-        cout<<"\nSI = "<<SI<<"  TI ="<<TI<<"  PI="<<PI<<endl;
-        cout<<"TTC = "<<TTC<<"  LLC="<<LLC<<endl;
-        if(IR[1] != 'D')
-        {
-            PI=1;
-            MOS();
-        }
-        else
-        {
-            LLC=LLC+1;
-            TTC=TTC+1;
-            cout<<LLC<<" :llc"<<endl;
-            cout<<TTC<<" :ttc"<<endl;
-            if(LLC < tll)
-            {
-                TI=0;
-                MOS();
-
-            }
-            if(TTC > ttl)
-            {
-                TI=1;
-                MOS();
-
-            }
-            else
-            {
-                SI=2;
-                MOS();
-            }
-            //write();
-        }
-        cout<<"\nTTC = "<<TTC<<"  LLC="<<LLC<<endl;
-        cout<<"SI = "<<SI<<"  TI ="<<TI<<"  PI="<<PI<<endl;
-        break;
-
-
-    case 'H':
-
-        SI=3;
-        MOS();
-        break;
-    }
-
-
-}
-
-
-void executeProgram()
-{
-    int no;
-    char a[3];
-    int i,j,k;
-    for(i=0;i<=kio;i++)
-    {
-            cout<<"PTR  "<<PTR<<endl;
-            a[0]=M[PTR+i][2];
-            a[1]=M[PTR+i][3];
-            a[2]='\0';
-            no=((a[0]-48)*10)+(a[1]-48);
-            cout<<endl<<"no  "<<no;
-            for(j=0;j<10;j++)
-            {
-                for(k=0;k<4;k++)
-                {
-                    IR[k]=M[(no*10)+j][k];
+                int i = ptr;
+                i = i * 10;
+                while (M[i][0] != '*'){
+                    i++;
                 }
-                cout<<"IR  "<<IR<<endl;
 
-                VA=((IR[2]-48)*10)+(IR[3]-48);
-                AddMap();
-                examine();
+                int temp = frame / 10;
 
+                M[i][0] = ' ';
+                M[i][1] = ' ';
+                M[i][2] = temp + 48;
+                M[i][3] = frame % 10 + 48;
+
+                frame = frame * 10;
+                for (int i = 0; i < 4; i++){
+                    M[frame][i] = R[i];
+                }
             }
+        }else if (IR[0] == 'C' && IR[1] == 'R'){
+            int flag = 0;
+            int ra = ADDRESSMAP(add);
+            if (ra == -1){
+                EM = 6;
+                TERMINATE(6);
+            }else{
+                for (int i = 0; i < 4; i++){
+                    if (R[i] != M[ra][i]){
+                        flag = 1;
+                    }
+                }
 
-            cout<<endl<<"A  "<<a<<endl;
-
-    }
-}
-
-void startExecution()
-{
-    IC=0;
-    executeProgram();
-}
-
-void init()
-{
-    int i,j;
-    PTR=(rand()%29)*10;
-    cout<<"PTR   "<<PTR<<endl;
-    for(i=0;i<30;i++)
-    {
-        flag[i]=0;
-    }
-    flag[PTR/10]=1;
-    for(i=0;i<300;i++)
-    {
-        for(j=0;j<4;j++)
-        {
-            M[i][j]='_';
+                if (flag == 1){
+                    C = false;
+                }else{
+                    C = true;
+                }
+            }
+        }else if (IR[0] == 'B' && IR[1] == 'T'){
+            if (C == true){
+                IC = add;
+            }
+        }else if (IR[0] == 'G' && IR[1] == 'D'){
+            SI = 1;
+            MOS();
+        }else if (IR[0] == 'P' && IR[1] == 'D'){
+            SI = 2;
+            MOS();
+        }else if (IR[0] == 'H'){
+            SI = 3;
+            MOS();
+            break;
+        }else{
+            EM = 4;
+            TERMINATE(EM);
+            outFile<< "JOBID: "<<P.job_id<<"\tIC: "<<IC<<"\tToggle : "<<C<<"\tTLC: "<<P.TLC<<"\tTTC: "<<P.TTC<<"\tTTL: "<<P.TTL<<"\tTLL: " <<P.TLL<<"\tIR: ";
+            for (int i = 0; i < 4; i++){
+                outFile << IR[i];
+            }
+            outFile<<"\n\n";
+            break;
         }
     }
-    for(i=PTR;i<PTR+10;i++)
-    {
-        for(j=0;j<4;j++)
-        {
-            M[i][j]='#';
-        }
-    }
-
 }
 
-void load()
-{
-    printf("IN LOAD\n");
-    int i,j,k;
-
-    while(fin)
-    {
-        cout<<"In while"<<endl;
-
-        getline(fin,line);
-        cout<<line<<"line1"<<endl;
-        if(line[0] =='$' && line[1]=='A' && line[2]=='M' && line[3]=='J')
-        {
-
-            SI=0;
-            TI=0;
-            TTC=0;LLC=0;
-            for(i=4,j=0;i<8;i++,j++)
-            {
-                pcb.job[j]=line[i];
-
-            }
-            for(i=8,j=0;i<12;i++,j++)
-            {
-                pcb.TTL[j]=line[i];
-            }
-            for(i=12,j=0;i<16;i++,j++)
-            {
-                pcb.TLL[j]=line[i];
-            }
-            ttl= (pcb.TTL[0]-48)*1000 + (pcb.TTL[1]-48)*100 + (pcb.TTL[2]-48)*10 + (pcb.TTL[3]-48);
-            tll= (pcb.TLL[0]-48)*1000 + (pcb.TLL[1]-48)*100 + (pcb.TLL[2]-48)*10 + (pcb.TLL[3]-48);
-            cout<<" TTL jdfjks = "<<ttl<<endl;
-            cout<<" TLL = "<<tll<<endl;
-            TTC=0;
-            LLC=0;
+void LOAD(){
+    cout << "\nReading Data..." << endl;
+    int m = 0;
+    string line;
+    while (getline(inFile, line)){
+        string str = "";
+        for (int i = 0; i < 4; i++){
+            str += line[i];
+        }
+        if (str == "$AMJ"){
             init();
-            allocate();
-        }
-        if(line[0] =='$' && line[1]=='D' && line[2]=='T' && line[3]=='A')
-        {
-                startExecution();
+            ptr = ALLOCATE();
+            cout<<"PTR : "<<ptr<<endl;
+            for (int i = ptr * 10; i < ptr * 10 + 10; i++){
+                for (int j = 0; j < 4; j++){
+                    M[i][j] = '*';
+                }
+            }
+            visited[ptr] = 1;
+            // Initialize PCB
+            string jobid_str = "";
+            string TTL_str = "";
+            string TLL_str = "";
+            for (int i = 0; i < 4; i++){
+                jobid_str += line[i + 4];
+                TTL_str += line[i + 8];
+                TLL_str += line[i + 12];
+            }
+            P.job_id = stoi(jobid_str);
+            cout<<"job-id: "<<P.job_id<<endl;
+            P.TTL = stoi(TTL_str);
+            P.TLL = stoi(TLL_str);
+            P.TLC = 0;
+            P.TTC = 0;
+        }else if (str == "$DTA"){
+            EXECUTE();
+        }else if (str == "$END"){
+            for (int i = 0; i < 300; i++){
+                cout << "M[" << i << "] - ";
+                for (int j = 0; j < 4; j++){
+                    cout << M[i][j]<<" ";
+                }
+                cout << endl;
+            }
+            cout << "\n**************   END/HALT   **************\n\n"<< endl;
+        }else{
+            int frameNo = ALLOCATE();
+            cout<<"Frame no: "<<frameNo<<endl;
+            while (visited[frameNo] != 0){
+                frameNo = ALLOCATE(); 
+                cout<<"Frame no: "<<endl;
+            }
+            visited[frameNo] = 1;
+            int i = ptr;
+            while (M[i][0] != '*'){
+                i++;
+            }
+            int temp = frameNo / 10; // 17/10 = 1
+
+            M[i][0] = ' ';
+            M[i][1] = ' ';
+            M[i][2] = temp + 48;  //48 here means 0
+            M[i][3] = frameNo % 10 + 48;
+
+            int len = 0;
+            for (int i = frameNo * 10; i < frameNo * 10 + 10 && len < line.length(); i++){
+                for (int j = 0; j < 4 && len < line.length(); j++){
+                    if (line[len] == 'H'){
+                        M[i][j] = line[len++];
+                        break;
+                    }else{
+                        M[i][j] = line[len++];
+                    }
+                }
+            }
+            line.clear();
         }
     }
 }
 
-
-
-int main()
-{
-    fin.open("input_phase2.txt");
-    fout.open("output.txt");
-    load();
-     fin.close();
-    fout.close();
+int main(){
+    inFile.open("input_Phase2.txt", ios::in);
+    outFile.open("output_Phase2.txt", ios::out);
+    LOAD();
     return 0;
 }
-
